@@ -15,9 +15,10 @@ void ctrlc_handler(int) { ctrl_c_pressed = true; }
 
 int main() {
     // 동영상 파일 경로 (나중에 GStreamer로 바꿔야 함)
-    string input = "5_lt_cw_100rpm_out.mp4";
+    // in 8_lt_cw_100rpm_in.mp4
+    // out 5_lt_cw_100rpm_out.mp4
+    string input = "8_lt_cw_100rpm_in.mp4";
     VideoCapture source(input);
-
     // 동영상 파일 열기 확인
     if (!source.isOpened()) {
         cerr << "Video open failed!" << endl;
@@ -25,26 +26,28 @@ int main() {
     }
 
     // GStreamer를 사용한 영상 전송 설정
-    string dst1 = "appsrc ! videoconvert ! video/x-raw, format=BGRx ! "
-                  "nvvidconv ! nvv4l2h264enc insert-sps-pps=true ! "
-                  "h264parse ! rtph264pay pt=96 ! "
-                  "udpsink host=203.234.58.166 port=8001 sync=false";
-    string dst2 = "appsrc ! videoconvert ! video/x-raw, format=BGRx ! "
-                  "nvvidconv ! nvv4l2h264enc insert-sps-pps=true ! "
-                  "h264parse ! rtph264pay pt=96 ! "
-                  "udpsink host=203.234.58.166 port=8002 sync=false";
-
-    VideoWriter writer1(dst1, 0, 30, Size(640, 360), true);
-    VideoWriter writer2(dst2, 0, 30, Size(640, 360), false);
-
+    string dst1 = "appsrc ! videoconvert ! video/x-raw, format=BGRx ! \
+    nvvidconv ! nvv4l2h264enc insert-sps-pps=true ! \
+    h264parse ! rtph264pay pt=96 ! \
+    udpsink host=203.234.58.166 port=8001 sync=false";
+    VideoWriter writer1(dst1, 0, (double)30, Size(640,360), true);
+    string dst2 = "appsrc ! videoconvert ! video/x-raw, format=BGRx ! \
+    nvvidconv ! nvv4l2h264enc insert-sps-pps=true ! \
+    h264parse ! rtph264pay pt=96 ! \
+    udpsink host=203.234.58.166 port=8002 sync=false";
+    VideoWriter writer2(dst2, 0, (double)30, Size(640,360), false);
+    string dst3 = "appsrc ! videoconvert ! video/x-raw, format=BGRx ! \
+    nvvidconv ! nvv4l2h264enc insert-sps-pps=true ! \
+    h264parse ! rtph264pay pt=96 ! \
+    udpsink host=203.234.58.166 port=8003 sync=false";
+    VideoWriter writer3(dst3, 0, (double)30, Size(640, 90), true);
     if (!writer1.isOpened() || !writer2.isOpened()) {
         cerr << "Failed to open GStreamer video writers!" << endl;
         return -1;
     }
-
     // Dynamixel 초기화
-    Dxl mx;
-    if (!mx.open()) {
+    Dxl dxl;
+    if (!dxl.open()) {
         cerr << "Dynamixel open error" << endl;
         return -1;
     }
@@ -58,6 +61,7 @@ int main() {
     int error;      // 에러 값 저장
     int vel1 = 0;   // 왼쪽 바퀴 속도
     int vel2 = 0;   // 오른쪽 바퀴 속도
+    double k = 0.5; // 게인 값
     bool motor_active = false; // Dynamixel 작동 여부 플래그
 
     while (true) {
@@ -73,8 +77,9 @@ int main() {
         // 에러 계산
         error = getError(result, tmp_pt);
         // 's' 키 입력 시 Dynamixel 활성화
-        if (mx.kbhit()) {
-            char c = mx.getch();
+        if (dxl.kbhit()) {
+            char c = dxl.getch();
+            //if( c=='q')break;
             if (c == 's') {
                 motor_active = !motor_active; // 모터 활성화/비활성화 토글
                 cout << (motor_active ? "Motor activated!" : "Motor deactivated!") << endl;
@@ -83,24 +88,22 @@ int main() {
 
         if (motor_active) {
             // 에러 값을 기반으로 속도 설정
-            vel1 = 100 - error;  // 기본 속도 100에서 에러를 반영
-            vel2 = 100 + error;
-            
-            vel1 = max(-100, min(100, vel1));
-            vel2 = max(-100, min(100, vel2));
-            
-            mx.setVelocity(vel1, vel2);// Dynamixel 속도 명령 전송
-        } else {
+            vel1 = 100 -k*error;  // 기본 속도 100에서 에러를 반영
+            vel2 = -(100 + k*error); 
+            dxl.setVelocity(vel1, vel2);// Dynamixel 속도 명령 전송
+        } 
+        
+        else {
             // 모터 비활성화 상태에서 속도 0 유지
             vel1 = 0;
             vel2 = 0;
-            mx.setVelocity(vel1, vel2);
+            dxl.setVelocity(vel1, vel2);
         }
         // 영상 전송
-        writer1.write(frame);  
-        writer2.write(result); 
+        writer1<<frame;  
+        writer2<<gray;
+        writer3<<result;
         if (ctrl_c_pressed) break;// Ctrl+C 입력 시 종료
-
         tm.stop(); // 시간 측정 종료
         cout << "Error: " << error << "\tLeft: " << vel1 << "\tRight: " << vel2
              << "\tTime: " << tm.getTimeMilli() << " ms" << endl;
@@ -108,6 +111,6 @@ int main() {
         tm.reset(); // 시간 측정 초기화
         usleep(20 * 1000); // 20ms 대기
     }
-    mx.close(); // Dynamixel 종료
+    dxl.close(); // Dynamixel 종료
     return 0;
 }
