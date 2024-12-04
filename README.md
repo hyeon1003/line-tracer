@@ -3,7 +3,8 @@
 ## 라인검출 코드
 
 ### 전처리 함수 
-'''void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
+'''
+void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
     source >> frame;
     if (frame.empty()) {
         cerr << "empty frame" << endl;
@@ -22,11 +23,13 @@
     int r_pts = thresh.rows / 4 * 3;
     Rect r(0, r_pts, thresh.cols, thresh.rows - r_pts);
     thresh = thresh(r);
-}'''
+}
+'''
 
 ### 라인검출함수
 
-'''void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat& centroids) {
+'''
+void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat& centroids) {
     Mat labels;
     int cnt = connectedComponentsWithStats(thresh, labels, stats, centroids);
 
@@ -60,7 +63,8 @@
 
 ### 라인시각화 함수
 
-'''void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Mat& result) {
+'''
+void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Mat& result) {
     bool isTracked = false; // 현재 추적 중인 라인이 있는지 확인
     for (int i = 1; i < stats.rows; i++) {
         int area = stats.at<int>(i, 4); // 객체 면적
@@ -90,9 +94,12 @@
     if (!isTracked) {
         circle(result, tmp_pt, 5, Scalar(0, 0, 255), -1); // 빨간 점 표시
     }
-}'''
+}
+'''
 
 ### 에러 구하는 함수
-'''int getError(const Mat& frame, const Point& po) {
+'''
+int getError(const Mat& frame, const Point& po) {
     return (frame.cols / 2 - po.x);
-}'''
+}
+'''
