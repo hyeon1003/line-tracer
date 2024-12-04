@@ -15,8 +15,7 @@ void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
     gray = gray + (100 - bright_avg[0]); // 밝기 조정
 
     // 이진화
-    threshold(gray, thresh, 130, 255, THRESH_BINARY);
-
+    threshold(gray, thresh, 0, 255, THRESH_BINARY | THRESH_OTSU);
     // 관심 영역(ROI) 자르기: 영상의 하단 1/4만 남김
     int r_pts = thresh.rows / 4 * 3;
     Rect r(0, r_pts, thresh.cols, thresh.rows - r_pts);
@@ -26,8 +25,6 @@ void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
 void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat& centroids) {
     Mat labels;
     int cnt = connectedComponentsWithStats(thresh, labels, stats, centroids);
-
-    // 1채널 -> 3채널 변환 (디버깅용)
     result = thresh.clone();
     cvtColor(result, result, COLOR_GRAY2BGR);
 
@@ -42,14 +39,14 @@ void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat&
             int y = cvRound(centroids.at<double>(i, 1));
             int dist = norm(Point(x, y) - tmp_pt); // 거리 계산
 
-            if (dist < min_dist && dist <= 150) {
+            if (dist < min_dist && dist <= 75) { // 100 → 75로 수정
                 min_dist = dist;
                 min_index = i;
             }
+
         }
     }
-
-    if (min_index != -1 && min_dist <= 150) {
+    if (min_index != -1 && min_dist <= 75) {
         tmp_pt = Point(cvRound(centroids.at<double>(min_index, 0)),
                        cvRound(centroids.at<double>(min_index, 1)));
     }
@@ -61,7 +58,6 @@ void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Ma
         if (area > 100) {
             int x = cvRound(centroids.at<double>(i, 0));
             int y = cvRound(centroids.at<double>(i, 1));
-
             if (x == tmp_pt.x) {
                 rectangle(result, Rect(stats.at<int>(i, 0), stats.at<int>(i, 1),
                                        stats.at<int>(i, 2), stats.at<int>(i, 3)),
@@ -77,6 +73,7 @@ void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Ma
     }
 }
 
-int getError(const Mat& result, const Point& tmp_pt) {
-    return (result.cols / 2) - tmp_pt.x;
+double getError(const Mat& frame, const Point& po, double gain) {
+    return (frame.cols / 2 - po.x) * gain;
 }
+
