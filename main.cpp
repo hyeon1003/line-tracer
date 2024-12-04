@@ -119,8 +119,8 @@ int main() {
 #include <sys/time.h>
 #include "vision.hpp"  // 영상 처리 함수 포함
 #include "dxl.hpp"     // Dynamixel 제어 라이브러리
-#include <opencv2/opencv.hpp>  // OpenCV 라이브러리 사용
 
+#define K 0.15 // 게인 값 out->0.2 in 0.15
 using namespace std;
 using namespace cv;
 
@@ -130,7 +130,10 @@ void ctrlc_handler(int) { ctrl_c_pressed = true; }
 
 int main() {
     // 동영상 입력 파일 경로 (테스트용)
-    string input = "5_lt_cw_100rpm_out.mp4";
+    // in 8_lt_cw_100rpm_in.mp4
+    // ccw in 7_lt_ccw_100rpm_in.mp4
+    // out 5_lt_cw_100rpm_out.mp4
+    string input = "7_lt_ccw_100rpm_in.mp4";
     VideoCapture source(input);  // 동영상 파일 읽기
     if (!source.isOpened()) {  // 파일 열기 실패 시 종료
         cerr << "Video open failed!" << endl;
@@ -172,9 +175,8 @@ int main() {
     bool first_run = true;  // 첫 번째 루프인지 확인
     Point tmp_pt;  // 현재 라인의 중심 좌표
     Mat frame, gray, thresh, result, stats, centroids;  // 영상 처리용 변수들
-    int error;  // 에러 값 저장
-    int vel1 = 0, vel2 = 0;  // Dynamixel 좌/우 바퀴 속도
-    double k = 0.25;  // 게인 값 (라인 추적 민감도 조정)
+    double error;  // 에러 값 저장
+    int vel1 = 0, vel2 = 0;  // Dynamixel 좌/우 바퀴 속도  
     bool motor_active = false;  // Dynamixel 모터 작동 여부
 
     while (true) {
@@ -187,16 +189,10 @@ int main() {
             tmp_pt = Point(thresh.cols / 2, thresh.rows - 1);
             first_run = false;
         }
-
-        // 라인 검출 및 디버깅 표시
-        findObjects(thresh, tmp_pt, result, stats, centroids);
-        drawObjects(stats, centroids, tmp_pt, result);
-
-        // 에러 값 계산
-        error = getError(result, tmp_pt);
-
-        // 키 입력 처리 (모터 활성화/비활성화)
-        if (dxl.kbhit()) {
+        findObjects(thresh, tmp_pt, result, stats, centroids);// 라인 검출 
+        drawObjects(stats, centroids, tmp_pt, result);//라인 표시
+        error = getError(result, tmp_pt);// 에러 값 계산
+        if (dxl.kbhit()) {// 키 입력 처리 (모터 활성화/비활성화)
             char c = dxl.getch();
             if (c == 's') {  // 's' 키 입력 시 모터 상태 토글
                 motor_active = !motor_active;
@@ -206,23 +202,24 @@ int main() {
 
         // Dynamixel 속도 제어
         if (motor_active) {
-            vel1 = 100 - k * error;  // 왼쪽 바퀴 속도
-            vel2 = -(100 + k * error);  // 오른쪽 바퀴 속도
+            vel1 = 100 - K * error;  // 왼쪽 바퀴 속도
+            vel2 = -(100 + K * error);  // 오른쪽 바퀴 속도
             dxl.setVelocity(vel1, vel2);  // 속도 명령 전송
         } else {
             vel1 = vel2 = 0;  // 정지 상태 유지
             dxl.setVelocity(vel1, vel2);
         }
-
+        writer1<<frame;  
+        writer2<<gray;
+        writer3<<result;
         // 처리 시간 출력 및 FPS 유지
         usleep(20 * 1000);
         if (ctrl_c_pressed) break;  // Ctrl+C 입력 시 종료
         tm.stop();
-        cout << "Error: " << error << "\tLeft: " << vel1 << "\tRight: " << vel2
+        cout << "Error: " << (int)error << "\tLeft: " << vel1 << "\tRight: " << vel2
              << "\tTime: " << tm.getTimeMilli() << " ms" << endl;
         tm.reset();
     }
-
     dxl.close();  // Dynamixel 종료
     return 0;
 }
