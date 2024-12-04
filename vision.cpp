@@ -1,4 +1,4 @@
-#include "vision.hpp"
+/*#include "vision.hpp"
 
 void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
     source >> frame;
@@ -75,5 +75,82 @@ void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Ma
 
 double getError(const Mat& frame, const Point& po, double gain) {
     return (frame.cols / 2 - po.x) * gain;
+}*/
+
+#include "vision.hpp"
+
+// 입력 프레임 전처리 함수
+void preprocess(VideoCapture& source, Mat& frame, Mat& gray, Mat& thresh) {
+    source >> frame;
+    if (frame.empty()) {
+        cerr << "empty frame" << endl;
+        return;
+    }
+
+    // 그레이스케일 변환 및 밝기 보정
+    cvtColor(frame, gray, COLOR_BGR2GRAY);
+    Scalar bright_avg = mean(gray);
+    gray = gray + (100 - bright_avg[0]);
+
+    // 이진화 (Otsu 방법)
+    threshold(gray, thresh, 0, 255, THRESH_BINARY | THRESH_OTSU);
+
+    // 관심 영역(ROI) 선택 (하단 1/4)
+    int r_pts = thresh.rows / 4 * 3;
+    Rect r(0, r_pts, thresh.cols, thresh.rows - r_pts);
+    thresh = thresh(r);
 }
+
+// 라인 검출 및 중심 업데이트
+void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat& centroids) {
+    Mat labels;
+    int cnt = connectedComponentsWithStats(thresh, labels, stats, centroids);
+
+    // 초기값 설정
+    result = thresh.clone();
+    cvtColor(result, result, COLOR_GRAY2BGR);
+
+    int min_index = -1;
+    int min_dist = thresh.cols;
+
+    for (int i = 1; i < cnt; i++) {
+        int area = stats.at<int>(i, 4);  // 객체 면적
+        if (area > 100) {  // 노이즈 제거
+            int x = cvRound(centroids.at<double>(i, 0));
+            int y = cvRound(centroids.at<double>(i, 1));
+            int dist = norm(Point(x, y) - tmp_pt);
+            if (dist < min_dist && dist <= 75) {  // 거리 조건
+                min_dist = dist;
+                min_index = i;
+            }
+        }
+    }
+
+    // 중심 업데이트
+    if (min_index != -1 && min_dist <= 75) {
+        tmp_pt = Point(cvRound(centroids.at<double>(min_index, 0)),
+                       cvRound(centroids.at<double>(min_index, 1)));
+    }
+}
+
+// 라인 시각화
+void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Mat& result) {
+    for (int i = 1; i < stats.rows; i++) {
+        int area = stats.at<int>(i, 4);
+        if (area > 100) {
+            int x = cvRound(centroids.at<double>(i, 0));
+            int y = cvRound(centroids.at<double>(i, 1));
+            Scalar color = (x == tmp_pt.x) ? Scalar(0, 0, 255) : Scalar(255, 0, 0);  // 빨간색/파란색
+            rectangle(result, Rect(stats.at<int>(i, 0), stats.at<int>(i, 1),
+                                   stats.at<int>(i, 2), stats.at<int>(i, 3)), color);
+            circle(result, Point(x, y), 5, color, -1);
+        }
+    }
+}
+
+// 에러 계산
+double getError(const Mat& frame, const Point& po, double gain) {
+    return (frame.cols / 2 - po.x) * gain;
+}
+
 
