@@ -109,13 +109,12 @@ void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat&
     // 초기값 설정
     result = thresh.clone();
     cvtColor(result, result, COLOR_GRAY2BGR);
-
     int min_index = -1;
     int min_dist = thresh.cols;
 
     for (int i = 1; i < cnt; i++) {
         int area = stats.at<int>(i, 4);  // 객체 면적
-        if (area > 100) {  // 노이즈 제거
+        if (area > 100) {  // 노이즈 제거(작은 객체 무시) 기준 100
             int x = cvRound(centroids.at<double>(i, 0));
             int y = cvRound(centroids.at<double>(i, 1));
             int dist = norm(Point(x, y) - tmp_pt);
@@ -135,22 +134,41 @@ void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat&
 
 // 라인 시각화
 void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Mat& result) {
+    bool isTracked = false; // 현재 추적 중인 라인이 있는지 확인
     for (int i = 1; i < stats.rows; i++) {
-        int area = stats.at<int>(i, 4);
-        if (area > 100) {
+        int area = stats.at<int>(i, 4); // 객체 면적
+        if (area > 100) { // 충분히 큰 객체만 처리
             int x = cvRound(centroids.at<double>(i, 0));
             int y = cvRound(centroids.at<double>(i, 1));
-            Scalar color = (x == tmp_pt.x) ? Scalar(0, 0, 255) : Scalar(255, 0, 0);  // 빨간색/파란색
-            rectangle(result, Rect(stats.at<int>(i, 0), stats.at<int>(i, 1),
-                                   stats.at<int>(i, 2), stats.at<int>(i, 3)), color);
-            circle(result, Point(x, y), 5, color, -1);
+
+            // 추적 중인 라인인지 확인
+            if (x == tmp_pt.x && y == tmp_pt.y) {
+                isTracked = true; // 추적 중인 라인이 있음
+                // 추적 중인 라인은 빨간색 표시
+                rectangle(result, Rect(stats.at<int>(i, 0), stats.at<int>(i, 1),
+                                       stats.at<int>(i, 2), stats.at<int>(i, 3)),
+                          Scalar(0, 0, 255)); // 빨간 박스
+                circle(result, Point(x, y), 5, Scalar(0, 0, 255), -1); // 빨간 점
+            }
+            else {
+                // 추적 중이 아닌 후보 라인은 파란색 표시
+                rectangle(result, Rect(stats.at<int>(i, 0), stats.at<int>(i, 1),
+                                       stats.at<int>(i, 2), stats.at<int>(i, 3)),
+                          Scalar(255, 0, 0)); // 파란 박스
+                circle(result, Point(x, y), 5, Scalar(255, 0, 0), -1); // 파란 점
+            }
         }
+    }
+    // 라인이 사라졌을 때 이전 중심 유지
+    if (!isTracked) {
+        circle(result, tmp_pt, 5, Scalar(0, 0, 255), -1); // 빨간 점 표시
     }
 }
 
+
 // 에러 계산
-double getError(const Mat& frame, const Point& po, double gain) {
-    return (frame.cols / 2 - po.x) * gain;
+int getError(const Mat& frame, const Point& po) {
+    return (frame.cols / 2 - po.x);
 }
 
 
