@@ -171,4 +171,14 @@ int getError(const Mat& frame, const Point& po) {
     return (frame.cols / 2 - po.x);
 }
 
-
+void controlDynamixel(Dxl &dxl, bool motor_active, double error, double gain, int &vel1, int &vel2) {
+    // 모터 제어
+    if (motor_active) {
+        vel1 = 100 - gain * error;  // 왼쪽 바퀴 속도 계산
+        vel2 = -(100 + gain * error);  // 오른쪽 바퀴 속도 계산
+        dxl.setVelocity(vel1, vel2);  // 속도 명령 전송
+    } else {
+        vel1 = vel2 = 0;  // 모터 정지
+        dxl.setVelocity(vel1, vel2);
+    }
+}
