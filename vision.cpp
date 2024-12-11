@@ -90,7 +90,7 @@ int getError(const Mat& frame, const Point& po) {
 void controlDynamixel(Dxl &dxl, bool motor_active, double error, int &vel1, int &vel2) {
     const int MAX_ERROR = 300; // 최대 에러 값 제한
     error = (error > MAX_ERROR) ? MAX_ERROR : ((error < -MAX_ERROR) ? -MAX_ERROR : error);
-    double gain = (abs(error) > 200) ? 0.7 : 0.2; // 에러 값에 따라 게인 설정
+    double gain = (abs(error) > 200) ? 0.2 : 0.13; // 에러 값에 따라 게인 설정
     if (motor_active) {
         vel1 = 100 - gain * error;  // 왼쪽 바퀴 속도
         vel2 = -(100 + gain * error); // 오른쪽 바퀴 속도
