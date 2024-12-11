@@ -11,5 +11,5 @@ void findObjects(const Mat& thresh, Point& tmp_pt, Mat& result, Mat& stats, Mat&
 void drawObjects(const Mat& stats, const Mat& centroids, const Point& tmp_pt, Mat& result);// 객체를 표시하는 함수
 int getError(const Mat& frame, const Point& po);// 에러 계산 함수: 라인의 중심과 영상 중심의 차이를 반환
 void controlDynamixel(Dxl &dxl, bool motor_active, double error, double gain, int &vel1, int &vel2);//다이나믹셀 제어 함수
-
+void limitVelocity(int &vel1, int &vel2);//다이나믹셀 역방향 제어 함수
 #endif
