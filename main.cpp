@@ -17,18 +17,16 @@ int main() {
     // 동영상 입력 파일 경로
     // ccw in 7_lt_ccw_100rpm_in.mp4
     // out 5_lt_cw_100rpm_out.mp4
-    string input = "7_lt_ccw_100rpm_in.mp4";
-    VideoCapture source(input);
+    //string input = "5_lt_cw_100rpm_out.mp4";
+    //VideoCapture source(input);
     //jetson 카메라
-    /*string src = "nvarguscamerasrc sensor-id=0 ! \
+    string src = "nvarguscamerasrc sensor-id=0 ! \
 	video/x-raw(memory:NVMM), width=(int)640, height=(int)360, \
     format=(string)NV12, framerate=(fraction)30/1 ! \
 	nvvidconv flip-method=0 ! video/x-raw, \
 	width=(int)640, height=(int)360, format=(string)BGRx ! \
 	videoconvert ! video/x-raw, format=(string)BGR ! appsink";
-    */
-
-    //VideoCapture source(src);  // 동영상 파일 읽기
+    VideoCapture source(src);  // 동영상 파일 읽기
     if (!source.isOpened()) {  // 파일 열기 실패 시 종료
         cerr << "Video open failed!" << endl;
         return -1;
@@ -103,7 +101,7 @@ int main() {
         writer1<<frame;  
         writer2<<gray;
         writer3<<result;
-        usleep(20 * 1000);
+        //usleep(20 * 1000);
         // 디버깅 출력
         tm.stop();
         cout << "Error: " << (int)error << "\tLeft: " << vel1 << "\tRight: " << vel2
