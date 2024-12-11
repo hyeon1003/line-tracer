@@ -172,13 +172,28 @@ int getError(const Mat& frame, const Point& po) {
 }
 
 void controlDynamixel(Dxl &dxl, bool motor_active, double error, double gain, int &vel1, int &vel2) {
-    // 모터 제어
+    const int MAX_ERROR = 150;  // 최대 error 값 제한
+    error = (error > MAX_ERROR) ? MAX_ERROR : ((error < -MAX_ERROR) ? -MAX_ERROR : error);
+
     if (motor_active) {
-        vel1 = 100 - gain * error;  // 왼쪽 바퀴 속도 계산
-        vel2 = -(100 + gain * error);  // 오른쪽 바퀴 속도 계산
-        dxl.setVelocity(vel1, vel2);  // 속도 명령 전송
+        if (abs(error) > 200) {
+            // 급격한 회전 동작
+            vel1 = (error > 0) ? 50 : -50;
+            vel2 = (error > 0) ? -50 : 50;
+        } else {
+            // 일반적인 직진 및 회전 동작
+            vel1 = 100 - gain * error;
+            vel2 = -(100 + gain * error);
+        }
+        limitVelocity(vel1, vel2);  // 역방향 회전 방지
+        dxl.setVelocity(vel1, vel2);
     } else {
         vel1 = vel2 = 0;  // 모터 정지
         dxl.setVelocity(vel1, vel2);
     }
+}
+
+void limitVelocity(int &vel1, int &vel2) {// 속도 제한 함수
+    if (vel1 < 0) vel1 = 0;
+    if (vel2 > 0) vel2 = 0;
 }
