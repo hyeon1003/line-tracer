@@ -158,3 +158,30 @@ int getError(const Mat& frame, const Point& po) {
     return (frame.cols / 2 - po.x);
 }
 ```
+
+### 다이나믹셀 제어 함수
+```
+void controlDynamixel(Dxl &dxl, bool motor_active, double error, int &vel1, int &vel2) {
+    const int MAX_ERROR = 300; // 최대 에러 값 제한
+    error = (error > MAX_ERROR) ? MAX_ERROR : ((error < -MAX_ERROR) ? -MAX_ERROR : error);
+    double gain = (abs(error) > 200) ? 0.7 : 0.2; // 에러 값에 따라 게인 설정
+    if (motor_active) {
+        vel1 = 100 - gain * error;  // 왼쪽 바퀴 속도
+        vel2 = -(100 + gain * error); // 오른쪽 바퀴 속도
+        limitVelocity(vel1, vel2); // 역방향 회전 방지
+        dxl.setVelocity(vel1, vel2); // 속도 적용
+    } else {
+        vel1 = vel2 = 0; // 모터 정지
+        dxl.setVelocity(vel1, vel2);
+    }
+}
+```
+error값을 구해 절대값으로 200이상인 경우 gain값을 0.7 아니면 0.2로 줘서 급회전, 부드라운 회전을 조정하도록함
+### 모터 속도 제한 함수
+```
+void limitVelocity(int &vel1, int &vel2) {
+    if (vel1 < 0) vel1 = 30;
+    if (vel2 > 0) vel2 = -30;
+}
+```
+모터가 역방향으로 돌아가는 것을 막음
